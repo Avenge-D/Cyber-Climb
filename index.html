@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Climb: Snakes & Ladders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* CSS Variables for Themes */
+        :root {
+            /* Default: Cyber Theme */
+            --bg-grad-1: #1e293b;
+            --bg-grad-2: #0f172a;
+            --panel-bg: rgba(15, 23, 42, 0.95);
+            --board-bg: #1e293b;
+            --board-border: #334155;
+            --cell-odd: rgba(0, 0, 0, 0.2);
+            --cell-even: rgba(255, 255, 255, 0.02);
+            --cell-border: rgba(56, 189, 248, 0.1);
+            --cell-text: rgba(255, 255, 255, 0.4);
+            --dice-bg: rgba(30, 41, 59, 0.95);
+            --dice-border: #38bdf8;
+            --dice-shadow: inset 0 0 15px rgba(56, 189, 248, 0.4), 0 0 10px rgba(56, 189, 248, 0.6);
+            --dot-bg: #f8fafc;
+            --dot-shadow: 0 0 5px #fff;
+            --text-main: #f8fafc;
+        }
+
+        .theme-classic {
+            --bg-grad-1: #d2b48c;
+            --bg-grad-2: #8b5a2b;
+            --panel-bg: rgba(92, 58, 33, 0.95);
+            --board-bg: #fff8dc;
+            --board-border: #8b4513;
+            --cell-odd: rgba(139, 69, 19, 0.15);
+            --cell-even: rgba(210, 180, 140, 0.4);
+            --cell-border: rgba(139, 69, 19, 0.3);
+            --cell-text: rgba(139, 69, 19, 0.8);
+            --dice-bg: #ffffff;
+            --dice-border: #cccccc;
+            --dice-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.3);
+            --dot-bg: #222222;
+            --dot-shadow: none;
+            --text-main: #f8fafc;
+        }
+
+        .theme-emoji {
+            --bg-grad-1: #fbcfe8;
+            --bg-grad-2: #c4b5fd;
+            --panel-bg: rgba(139, 92, 246, 0.95);
+            --board-bg: #ffffff;
+            --board-border: #ec4899;
+            --cell-odd: #dbeafe;
+            --cell-even: #fce7f3;
+            --cell-border: #fff;
+            --cell-text: #831843;
+            --dice-bg: #fef08a;
+            --dice-border: #f59e0b;
+            --dice-shadow: inset 0 0 15px rgba(245,158,11,0.4), 0 5px 15px rgba(0,0,0,0.2);
+            --dot-bg: transparent;
+            --dot-shadow: none;
+            --text-main: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-grad-2);
+            background-image: radial-gradient(circle at 50% 50%, var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
+            color: var(--text-main);
+            overflow-x: hidden;
+            transition: background 0.5s ease;
+        }
+
+        /* Dynamic Component Styling via CSS Vars */
+        aside, #start-overlay { background-color: var(--panel-bg) !important; transition: background 0.5s ease; }
+        #board-container { background-color: var(--board-bg) !important; border-color: var(--board-border) !important; transition: all 0.5s ease; }
+        .grid-cell { background-color: var(--cell-even); border-color: var(--cell-border); color: var(--cell-text); }
+        .grid-cell:nth-child(odd) { background-color: var(--cell-odd); }
+        .dice-face { background: var(--dice-bg); border: 2px solid var(--dice-border); box-shadow: var(--dice-shadow); transition: all 0.5s ease; }
+        .dot { 
+            background-color: var(--dot-bg); box-shadow: var(--dot-shadow); display: flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; overflow: visible; border-radius: 50%; width: 14px; height: 14px; justify-self: center; align-self: center;
+        }
+
+        .glass-box { background-color: rgba(0,0,0,0.3) !important; border-color: rgba(255,255,255,0.1) !important; }
+        :root { --cell-size: calc(100% / 10); }
+        #start-overlay { backdrop-filter: blur(8px); }
+
+        /* 3D Dice Setup */
+        .dice-scene { perspective: 600px; width: 80px; height: 80px; margin: 0 auto; }
+        .dice { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-40px); cursor: pointer; }
+        .dice-face { position: absolute; width: 80px; height: 80px; border-radius: 12px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 8px; gap: 2px; }
+
+        .front  { transform: rotateY(  0deg) translateZ(40px); }
+        .back   { transform: rotateY(180deg) translateZ(40px); }
+        .right  { transform: rotateY( 90deg) translateZ(40px); }
+        .left   { transform: rotateY(-90deg) translateZ(40px); }
+        .top    { transform: rotateX( 90deg) translateZ(40px); }
+        .bottom { transform: rotateX(-90deg) translateZ(40px); }
+
+        #board-container { box-shadow: 0 0 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(0,0,0,0.3); }
+        .grid-cell { position: relative; display: flex; justify-content: flex-start; align-items: flex-start; padding: 2px 4px; font-size: 0.7rem; font-weight: bold; }
+
+        .buff-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5rem; filter: drop-shadow(0 0 5px rgba(255,255,255,0.8)); animation: float 2s ease-in-out infinite; pointer-events: none; z-index: 5; }
+        @keyframes float { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-50%, -65%); } }
+
+        /* Player Tokens */
+        .player-token { position: absolute; width: calc(var(--cell-size) * 0.5); height: calc(var(--cell-size) * 0.5); border-radius: 50%; transition: left 0.25s linear, top 0.25s linear, transform 0.15s ease-out, filter 0.15s ease; z-index: 20; }
+        .player1-style { background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb); box-shadow: 0 0 10px #3b82f6, inset 0 0 5px rgba(255,255,255,0.8); border: 2px solid #bfdbfe; }
+        .player2-style { background: radial-gradient(circle at 30% 30%, #f87171, #dc2626); box-shadow: 0 0 10px #ef4444, inset 0 0 5px rgba(255,255,255,0.8); border: 2px solid #fecaca; }
+        .player3-style { background: radial-gradient(circle at 30% 30%, #4ade80, #16a34a); box-shadow: 0 0 10px #22c55e, inset 0 0 5px rgba(255,255,255,0.8); border: 2px solid #bbf7d0; }
+        .player4-style { background: radial-gradient(circle at 30% 30%, #facc15, #ca8a04); box-shadow: 0 0 10px #eab308, inset 0 0 5px rgba(255,255,255,0.8); border: 2px solid #fef08a; }
+
+        .player-token.jumping { transform: scale(1.4) translateY(-12px) !important; z-index: 30 !important; filter: brightness(1.4); box-shadow: 0 10px 15px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.8) !important; }
+        .shield-break { animation: shatter 0.5s ease-out forwards; }
+        @keyframes shatter { 0% { filter: brightness(2) drop-shadow(0 0 10px #38bdf8); transform: scale(1.2); } 50% { filter: brightness(1) drop-shadow(0 0 20px #ef4444); transform: scale(0.9); } 100% { filter: brightness(1); transform: scale(1); } }
+
+        .tongue-anim { transform-origin: 6px 0; animation: flick 2.5s infinite; }
+        @keyframes flick { 0%, 75% { transform: scaleX(0); opacity: 0; } 80% { transform: scaleX(1.2); opacity: 1; } 85% { transform: scaleX(0.8); opacity: 1; } 90% { transform: scaleX(1.2); opacity: 1; } 100% { transform: scaleX(0); opacity: 0; } }
+
+        .hiss-text { position: absolute; color: #ef4444; font-weight: 900; font-size: 1.5rem; text-shadow: 0 0 10px #7f1d1d, 0 0 5px #fca5a5; pointer-events: none; z-index: 50; animation: driftUp 1s ease-out forwards; }
+        @keyframes driftUp { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; transform: translateY(-10px) scale(1.2); } 80% { opacity: 1; transform: translateY(-30px) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(0.8); } }
+
+        svg { filter: drop-shadow(0 3px 5px rgba(0,0,0,0.6)); transition: all 0.5s ease; }
+        #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+
+        /* Meme Animation */
+        .meme-animate-in { transform: scale(1.1) rotate(-3deg); opacity: 1; }
+        .meme-animate-out { transform: scale(0) rotate(10deg); opacity: 0; }
+    </style>
+</head>
+<body class="font-sans h-screen flex flex-col md:flex-row antialiased selection:bg-cyan-500 selection:text-white theme-cyber">
+
+    <!-- Start Screen Overlay -->
+    <div id="start-overlay" class="absolute inset-0 z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="text-center p-8 max-w-xl w-full">
+            <h1 class="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 mb-6 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)] tracking-tight">CYBER CLIMB</h1>
+            
+            <div class="glass-box p-6 rounded-2xl border shadow-xl mb-6 text-left text-sm space-y-4">
+                <div>
+                    <label class="block text-cyan-400 font-bold mb-2">Select Theme (Live Preview):</label>
+                    <div class="flex space-x-2" id="theme-selector">
+                        <button class="flex-1 py-2 bg-blue-600 text-white rounded font-bold border-2 border-blue-400 transition-colors theme-btn" data-theme="cyber">🌐 Cyber</button>
+                        <button class="flex-1 py-2 bg-slate-700 text-slate-300 rounded font-bold border-2 border-transparent hover:bg-slate-600 transition-colors theme-btn" data-theme="classic">🪵 Classic</button>
+                        <button class="flex-1 py-2 bg-slate-700 text-slate-300 rounded font-bold border-2 border-transparent hover:bg-slate-600 transition-colors theme-btn" data-theme="emoji">🤪 Emoji</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-cyan-400 font-bold mb-2">Select Number of Players:</label>
+                    <div class="flex space-x-2" id="player-count-selector">
+                        <button class="flex-1 py-2 bg-blue-600 text-white rounded font-bold border-2 border-blue-400 transition-colors" data-count="2">2 Players</button>
+                        <button class="flex-1 py-2 bg-slate-700 text-slate-300 rounded font-bold border-2 border-transparent hover:bg-slate-600 transition-colors" data-count="3">3 Players</button>
+                        <button class="flex-1 py-2 bg-slate-700 text-slate-300 rounded font-bold border-2 border-transparent hover:bg-slate-600 transition-colors" data-count="4">4 Players</button>
+                    </div>
+                </div>
+
+                <div class="space-y-2" id="name-inputs">
+                    <input type="text" id="p1-name" value="Player 1" placeholder="Player 1 Name" class="w-full glass-box text-blue-300 border rounded px-3 py-2 outline-none focus:border-blue-400">
+                    <input type="text" id="p2-name" value="Player 2" placeholder="Player 2 Name" class="w-full glass-box text-red-300 border rounded px-3 py-2 outline-none focus:border-red-400">
+                    <input type="text" id="p3-name" value="Player 3" placeholder="Player 3 Name" class="w-full glass-box text-green-300 border rounded px-3 py-2 outline-none focus:border-green-400 hidden">
+                    <input type="text" id="p4-name" value="Player 4" placeholder="Player 4 Name" class="w-full glass-box text-yellow-300 border rounded px-3 py-2 outline-none focus:border-yellow-400 hidden">
+                </div>
+                
+                <div class="mt-4 border-t border-slate-700 pt-3 text-slate-400 text-xs">
+                    <p>🎲 Roll 1 or 6 to unlock.</p>
+                    <p>🛡️ Shields protect from snakes. ⚡ Grants an extra turn.</p>
+                </div>
+            </div>
+            
+            <button id="play-game-btn" class="px-10 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-full text-2xl font-bold shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-cyan-500">
+                PLAY GAME
+            </button>
+        </div>
+    </div>
+
+    <!-- Meme Overlay -->
+    <div id="meme-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center pointer-events-none bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+        <div id="meme-content" class="bg-slate-800 border-4 border-red-500 p-8 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.8)] transition-all duration-300 transform scale-0 text-center max-w-lg w-full mx-4">
+            <div class="text-8xl mb-4 drop-shadow-lg" id="meme-emoji">🤡</div>
+            <h2 class="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-yellow-500 uppercase tracking-widest leading-tight" id="meme-text">...</h2>
+        </div>
+    </div>
+
+    <!-- Sidebar / Controls -->
+    <aside class="w-full md:w-1/3 lg:w-1/4 h-auto md:h-full border-b md:border-b-0 md:border-r flex flex-col items-center justify-center p-6 z-10 relative">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 to-pink-500"></div>
+        
+        <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 mb-2 text-center tracking-tight">CYBER CLIMB</h1>
+        <p class="text-xs text-slate-400 mb-8 uppercase tracking-widest opacity-70">Snakes & Ladders</p>
+
+        <!-- Status Panel -->
+        <div class="glass-box rounded-xl p-4 w-full mb-8 border shadow-lg relative overflow-hidden">
+            <div id="active-indicator" class="absolute top-0 left-0 h-1 w-full bg-cyan-400 transition-colors duration-300"></div>
+            <h2 id="turn-text" class="text-xl font-bold text-center text-cyan-400 mb-2">Player 1's Turn</h2>
+            <p id="message-log" class="text-sm text-center text-slate-300 h-10 flex items-center justify-center italic transition-all duration-300">Click the dice to begin.</p>
+        </div>
+
+        <!-- Dice Interactive -->
+        <div class="mb-8" title="Click to Roll!">
+            <div class="dice-scene">
+                <div id="dice" class="dice">
+                    <div class="dice-face front"><div class="dot" style="grid-area: 2 / 2"></div></div>
+                    <div class="dice-face back"><div class="dot" style="grid-area: 1/1"></div><div class="dot" style="grid-area: 2/1"></div><div class="dot" style="grid-area: 3/1"></div><div class="dot" style="grid-area: 1/3"></div><div class="dot" style="grid-area: 2/3"></div><div class="dot" style="grid-area: 3/3"></div></div>
+                    <div class="dice-face right"><div class="dot" style="grid-area: 1/3"></div><div class="dot" style="grid-area: 2/2"></div><div class="dot" style="grid-area: 3/1"></div></div>
+                    <div class="dice-face left"><div class="dot" style="grid-area: 1/1"></div><div class="dot" style="grid-area: 1/3"></div><div class="dot" style="grid-area: 3/1"></div><div class="dot" style="grid-area: 3/3"></div></div>
+                    <div class="dice-face top"><div class="dot" style="grid-area: 1/1"></div><div class="dot" style="grid-area: 1/3"></div><div class="dot" style="grid-area: 2/2"></div><div class="dot" style="grid-area: 3/1"></div><div class="dot" style="grid-area: 3/3"></div></div>
+                    <div class="dice-face bottom"><div class="dot" style="grid-area: 1/3"></div><div class="dot" style="grid-area: 3/1"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Stats -->
+        <div class="w-full grid grid-cols-2 gap-4" id="player-stats-container">
+            <!-- Dynamically populated via JS -->
+        </div>
+
+        <button id="reset-btn" class="mt-8 px-6 py-2 glass-box hover:brightness-125 rounded-full text-sm font-semibold transition-all border focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            Restart Game
+        </button>
+    </aside>
+
+    <!-- Game Board Area -->
+    <main class="flex-1 p-4 md:p-8 flex items-center justify-center relative overflow-hidden">
+        <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSg1NiwgMTg5LCAyNDgsIDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30 pointer-events-none"></div>
+        
+        <div id="board-container" class="relative w-full max-w-2xl aspect-square rounded-xl border flex-shrink-0">
+            <div id="html-grid" class="absolute inset-0 grid grid-cols-10 grid-rows-10 rounded-xl overflow-hidden"></div>
+            <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+            <div id="fx-container" class="absolute inset-0 w-full h-full pointer-events-none z-50"></div>
+            <div id="tokens-container" class="absolute inset-0 w-full h-full pointer-events-none z-20"></div>
+        </div>
+    </main>
+
+    <canvas id="confetti-canvas" class="hidden"></canvas>
+
+    <script>
+        const BOARD_SIZE = 100;
+        const GRID_COLS = 10;
+        const NUM_BUFFS = 5;
+        
+        const ladders = { 4: 25, 13: 46, 33: 49, 42: 63, 50: 69, 62: 81, 74: 92 };
+        const snakes = { 27: 5, 40: 3, 43: 18, 54: 31, 66: 45, 76: 58, 89: 53, 99: 41 };
+
+        let players = [];
+        let selectedPlayerCount = 2;
+        let currentTheme = 'cyber';
+        
+        const playerConfigs = [
+            { colorClass: 'text-blue-400', indicatorColor: 'bg-blue-500', style: 'player1-style' },
+            { colorClass: 'text-red-400', indicatorColor: 'bg-red-500', style: 'player2-style' },
+            { colorClass: 'text-green-400', indicatorColor: 'bg-green-500', style: 'player3-style' },
+            { colorClass: 'text-yellow-400', indicatorColor: 'bg-yellow-500', style: 'player4-style' }
+        ];
+
+        const themeGraphicsConfig = {
+            cyber: { snakeOuter: '#2e1065', snakeBody: '#db2777', snakeScales: '#22d3ee', snakeHead: '#9d174d', snakeEyes: '#fde047', ladderRail: '#fbbf24', ladderRung: '#f59e0b' },
+            classic: { snakeOuter: '#14532d', snakeBody: '#22c55e', snakeScales: '#16a34a', snakeHead: '#15803d', snakeEyes: '#000000', ladderRail: '#8b4513', ladderRung: '#a0522d' },
+            emoji: { snakeOuter: '#581c87', snakeBody: '#a855f7', snakeScales: '#fcd34d', snakeHead: '#7e22ce', snakeEyes: '#ffffff', ladderRail: '#ec4899', ladderRung: '#3b82f6' }
+        };
+        
+        let buffs = {};
+        let currentPlayerIndex = 0;
+        let isMoving = false;
+        let gameOver = false;
+        
+        let currentDiceSpinX = 0;
+        let currentDiceSpinY = 0;
+
+        const startOverlay = document.getElementById('start-overlay');
+        const playGameBtn = document.getElementById('play-game-btn');
+        const countBtns = document.querySelectorAll('#player-count-selector button');
+        const themeBtns = document.querySelectorAll('.theme-btn');
+        const htmlGrid = document.getElementById('html-grid');
+        const svgLayer = document.getElementById('svg-layer');
+        const fxContainer = document.getElementById('fx-container');
+        const tokensContainer = document.getElementById('tokens-container');
+        const statsContainer = document.getElementById('player-stats-container');
+        const diceElement = document.getElementById('dice');
+        const turnText = document.getElementById('turn-text');
+        const messageLog = document.getElementById('message-log');
+        const activeIndicator = document.getElementById('active-indicator');
+        
+        let posDisplays = [];
+        let shieldIcons = [];
+        let tokens = [];
+
+        themeBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                themeBtns.forEach(b => {
+                    b.classList.remove('bg-blue-600', 'text-white', 'border-blue-400');
+                    b.classList.add('bg-slate-700', 'text-slate-300', 'border-transparent');
+                });
+                e.target.classList.remove('bg-slate-700', 'text-slate-300', 'border-transparent');
+                e.target.classList.add('bg-blue-600', 'text-white', 'border-blue-400');
+                currentTheme = e.target.getAttribute('data-theme');
+                applyTheme();
+            });
+        });
+
+        function applyTheme() {
+            document.body.className = `font-sans h-screen flex flex-col md:flex-row antialiased selection:bg-cyan-500 selection:text-white theme-${currentTheme}`;
+            const dots = document.querySelectorAll('.dot');
+            dots.forEach(dot => {
+                if (currentTheme === 'emoji') {
+                    let faceClass = dot.parentElement.className;
+                    if (faceClass.includes('front')) dot.innerText = '🤡';
+                    else if (faceClass.includes('bottom')) dot.innerText = '💀';
+                    else if (faceClass.includes('right')) dot.innerText = '🍕';
+                    else if (faceClass.includes('left')) dot.innerText = '👽';
+                    else if (faceClass.includes('top')) dot.innerText = '😂';
+                    else if (faceClass.includes('back')) dot.innerText = '💩';
+                } else {
+                    dot.innerText = '';
+                }
+            });
+            drawBoardGraphics();
+        }
+
+        countBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                countBtns.forEach(b => {
+                    b.classList.remove('bg-blue-600', 'text-white', 'border-blue-400');
+                    b.classList.add('bg-slate-700', 'text-slate-300', 'border-transparent');
+                });
+                e.target.classList.remove('bg-slate-700', 'text-slate-300', 'border-transparent');
+                e.target.classList.add('bg-blue-600', 'text-white', 'border-blue-400');
+                
+                selectedPlayerCount = parseInt(e.target.getAttribute('data-count'));
+                for(let i=1; i<=4; i++) {
+                    const input = document.getElementById(`p${i}-name`);
+                    if(i <= selectedPlayerCount) input.classList.remove('hidden');
+                    else input.classList.add('hidden');
+                }
+            });
+        });
+
+        playGameBtn.addEventListener('click', () => {
+            players = [];
+            statsContainer.innerHTML = '';
+            tokensContainer.innerHTML = '';
+            posDisplays = [];
+            shieldIcons = [];
+            tokens = [];
+
+            for(let i=0; i<selectedPlayerCount; i++) {
+                let name = document.getElementById(`p${i+1}-name`).value.trim() || `Player ${i+1}`;
+                players.push({
+                    id: i, pos: 1, locked: true, hasShield: false, 
+                    colorClass: playerConfigs[i].colorClass, indicatorColor: playerConfigs[i].indicatorColor, name: name
+                });
+
+                let statBox = document.createElement('div');
+                statBox.className = "glass-box p-3 rounded-lg border text-center relative";
+                statBox.innerHTML = `
+                    <div class="w-4 h-4 rounded-full ${playerConfigs[i].style} inline-block mb-1"></div>
+                    <div class="text-xs opacity-70 truncate px-1" title="${name}">${name}</div>
+                    <div class="text-lg font-bold ${playerConfigs[i].colorClass}"><span id="p${i}-pos">🔒 1</span></div>
+                    <span id="p${i}-shield" class="hidden absolute top-2 right-2 text-base filter drop-shadow-[0_0_5px_#38bdf8]">🛡️</span>
+                `;
+                statsContainer.appendChild(statBox);
+                posDisplays.push(document.getElementById(`p${i}-pos`));
+                shieldIcons.push(document.getElementById(`p${i}-shield`));
+
+                let tokenDiv = document.createElement('div');
+                tokenDiv.className = `player-token ${playerConfigs[i].style}`;
+                tokenDiv.id = `token-${i}`;
+                tokenDiv.style.top = '90%'; tokenDiv.style.left = '0%';
+                tokensContainer.appendChild(tokenDiv);
+                tokens.push(tokenDiv);
+            }
+
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+            initBoard();
+        });
+
+        function initBoard() {
+            htmlGrid.innerHTML = '';
+            for (let i = BOARD_SIZE; i >= 1; i--) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                let row = Math.floor((i - 1) / GRID_COLS);
+                let col = (i - 1) % GRID_COLS;
+                let displayNum = (row % 2 !== 0) ? (row * GRID_COLS + col + 1) : (row * GRID_COLS + (GRID_COLS - 1 - col) + 1);
+                cell.textContent = displayNum;
+                cell.id = `cell-${displayNum}`;
+                htmlGrid.appendChild(cell);
+            }
+            generateBuffs();
+            drawBoardGraphics();
+            for(let i=0; i<players.length; i++) { updateTokenVisualPosition(i); }
+            updateUI();
+        }
+
+        function generateBuffs() {
+            buffs = {};
+            document.querySelectorAll('.buff-icon').forEach(e => e.remove());
+            let available = [];
+            for (let i = 2; i < 99; i++) {
+                if (!ladders[i] && !snakes[i] && !Object.values(snakes).includes(i) && !Object.values(ladders).includes(i)) {
+                    available.push(i);
+                }
+            }
+
+            for (let i = 0; i < NUM_BUFFS; i++) {
+                if (available.length === 0) break;
+                let idx = Math.floor(Math.random() * available.length);
+                let sq = available.splice(idx, 1)[0];
+                let type = Math.random() > 0.5 ? 'shield' : 'extra_turn';
+                let iconStr = type === 'shield' ? '🛡️' : '⚡';
+                let idStr = `buff-${sq}`;
+                buffs[sq] = { type: type, id: idStr };
+
+                let cell = document.getElementById(`cell-${sq}`);
+                if (cell) {
+                    let iconDiv = document.createElement('div');
+                    iconDiv.className = 'buff-icon';
+                    iconDiv.id = idStr;
+                    iconDiv.innerText = iconStr;
+                    cell.appendChild(iconDiv);
+                }
+            }
+        }
+
+        function getCoordsForSquare(squareNum) {
+            let zeroIndexed = squareNum - 1;
+            let row = Math.floor(zeroIndexed / GRID_COLS);
+            let col = zeroIndexed % GRID_COLS;
+            if (row % 2 !== 0) col = (GRID_COLS - 1) - col;
+            let visualRow = (GRID_COLS - 1) - row;
+            return { x: (col * 10) + 5, y: (visualRow * 10) + 5, col: col, visualRow: visualRow };
+        }
+
+        function drawBoardGraphics() {
+            let svgContent = '';
+            let colors = themeGraphicsConfig[currentTheme];
+
+            for (let start in ladders) {
+                let p1 = getCoordsForSquare(parseInt(start));
+                let p2 = getCoordsForSquare(ladders[start]);
+                let dx = p2.x - p1.x; let dy = p2.y - p1.y;
+                let length = Math.sqrt(dx*dx + dy*dy);
+                let nx = -dy / length * 2.5; let ny = dx / length * 2.5;
+
+                svgContent += `<line x1="${p1.x + nx}" y1="${p1.y + ny}" x2="${p2.x + nx}" y2="${p2.y + ny}" stroke="${colors.ladderRail}" stroke-width="1.2" stroke-linecap="round" />`;
+                svgContent += `<line x1="${p1.x - nx}" y1="${p1.y - ny}" x2="${p2.x - nx}" y2="${p2.y - ny}" stroke="${colors.ladderRail}" stroke-width="1.2" stroke-linecap="round" />`;
+
+                let steps = Math.floor(length / 3);
+                for(let i=1; i < steps; i++) {
+                    let t = i / steps;
+                    let rx = p1.x + dx * t; let ry = p1.y + dy * t;
+                    svgContent += `<line x1="${rx + nx}" y1="${ry + ny}" x2="${rx - nx}" y2="${ry - ny}" stroke="${colors.ladderRung}" stroke-width="1" />`;
+                }
+            }
+
+            for (let start in snakes) {
+                let p1 = getCoordsForSquare(parseInt(start));
+                let p2 = getCoordsForSquare(snakes[start]);
+                let dx = p2.x - p1.x; let dy = p2.y - p1.y;
+                let length = Math.sqrt(dx*dx + dy*dy);
+                
+                let midX = (p1.x + p2.x) / 2; let midY = (p1.y + p2.y) / 2;
+                let sign = (parseInt(start) % 2 === 0) ? 1 : -1;
+                let offset = length * 0.25 * sign;
+                let nx = -dy / length; let ny = dx / length;
+                let cx = midX + nx * offset; let cy = midY + ny * offset;
+
+                let dPath = `M ${p1.x} ${p1.y} Q ${cx} ${cy} ${p2.x} ${p2.y}`;
+
+                svgContent += `<path d="${dPath}" fill="none" stroke="${colors.snakeOuter}" stroke-width="3.5" stroke-linecap="round" opacity="0.6" filter="blur(1px)" />`;
+                svgContent += `<path d="${dPath}" fill="none" stroke="${colors.snakeBody}" stroke-width="2" stroke-linecap="round" />`;
+                svgContent += `<path d="${dPath}" fill="none" stroke="${colors.snakeScales}" stroke-width="0.8" stroke-dasharray="0.8 1.5" stroke-linecap="round" opacity="0.9" />`;
+
+                let tx = cx - p1.x; let ty = cy - p1.y;
+                let headAngle = Math.atan2(ty, tx) * (180 / Math.PI);
+
+                svgContent += `
+                <g transform="translate(${p1.x}, ${p1.y}) rotate(${headAngle})">
+                    <g class="tongue-anim"><path d="M 4,0 L 7,0 L 8,-0.8 M 7,0 L 8,0.8" fill="none" stroke="#ef4444" stroke-width="0.3" stroke-linecap="round" stroke-linejoin="round" /></g>
+                    <polygon points="-1.5,-2 2,-1.5 4.5,0 2,1.5 -1.5,2" fill="${colors.snakeHead}" stroke="rgba(255,255,255,0.3)" stroke-width="0.3" stroke-linejoin="round" />
+                    <circle cx="1.5" cy="-0.8" r="0.4" fill="${colors.snakeEyes}" />
+                    <circle cx="1.5" cy="0.8" r="0.4" fill="${colors.snakeEyes}" />
+                    <ellipse cx="1.6" cy="-0.8" rx="0.1" ry="0.3" fill="#000" transform="rotate(30 1.6 -0.8)" />
+                    <ellipse cx="1.6" cy="0.8" rx="0.1" ry="0.3" fill="#000" transform="rotate(-30 1.6 0.8)" />
+                </g>`;
+            }
+            svgLayer.innerHTML = svgContent;
+        }
+
+        function showHissEffect(squareNum) {
+            let coords = getCoordsForSquare(squareNum);
+            let hissEl = document.createElement('div');
+            hissEl.className = 'hiss-text';
+            hissEl.innerText = "HISS! 🐍";
+            hissEl.style.left = `calc(${coords.col * 10}% + 5%)`;
+            hissEl.style.top = `calc(${coords.visualRow * 10}% + 2%)`;
+            fxContainer.appendChild(hissEl);
+            setTimeout(() => { hissEl.remove(); }, 1000);
+        }
+
+        diceElement.addEventListener('click', rollDice);
+        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+        async function rollDice() {
+            if (isMoving || gameOver) return;
+            isMoving = true;
+            logMessage(`Rolling...`, 'text-slate-300');
+
+            const result = Math.floor(Math.random() * 6) + 1;
+            
+            let targetX = 0, targetY = 0;
+            switch(result) {
+                case 1: targetX = 0; targetY = 0; break;
+                case 2: targetX = 90; targetY = 0; break;  
+                case 3: targetX = 0; targetY = -90; break; 
+                case 4: targetX = 0; targetY = 90; break;  
+                case 5: targetX = -90; targetY = 0; break; 
+                case 6: targetX = 0; targetY = 180; break; 
+            }
+
+            currentDiceSpinX += 720; currentDiceSpinY += 720;
+            let finalX = Math.floor(currentDiceSpinX / 360) * 360 + targetX;
+            let finalY = Math.floor(currentDiceSpinY / 360) * 360 + targetY;
+
+            diceElement.style.transition = 'transform 0.35s ease-out';
+            diceElement.style.transform = `translateZ(60px) rotateX(${finalX - 180}deg) rotateY(${finalY - 180}deg)`;
+            await delay(350);
+            
+            diceElement.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            diceElement.style.transform = `translateZ(-40px) rotateX(${finalX}deg) rotateY(${finalY}deg)`;
+            
+            currentDiceSpinX = finalX; currentDiceSpinY = finalY;
+
+            await delay(500); 
+            logMessage(`${players[currentPlayerIndex].name} rolled a ${result}`, players[currentPlayerIndex].colorClass);
+            await delay(400); 
+            
+            await processMove(currentPlayerIndex, result);
+        }
+
+        async function processMove(pIndex, steps) {
+            let player = players[pIndex];
+            let token = tokens[pIndex];
+
+            if (player.locked) {
+                if (steps === 1 || steps === 6) {
+                    player.locked = false;
+                    logMessage(`🔓 ${player.name} unlocked!`, 'text-green-400');
+                    posDisplays[pIndex].innerText = "1";
+                    token.classList.add('jumping');
+                    await delay(250); token.classList.remove('jumping'); await delay(300);
+
+                    if (steps === 6) { logMessage(`Rolled a 6! Extra turn.`, 'text-cyan-300'); isMoving = false; } 
+                    else { nextTurn(); }
+                    return;
+                } else {
+                    logMessage(`Need 1 or 6 to unlock!`, 'text-amber-400');
+                    await delay(1500); nextTurn(); return;
+                }
+            }
+
+            let startPos = player.pos;
+            let targetPos = startPos + steps;
+
+            if (targetPos > BOARD_SIZE) {
+                logMessage(`Need exact roll. Turn skipped.`, 'text-amber-400');
+                await delay(1500);
+                if (steps === 6) { isMoving = false; logMessage(`Rolled a 6! Extra turn.`, 'text-cyan-300'); } 
+                else { nextTurn(); }
+                return;
+            }
+
+            let currentStep = startPos + 1;
+            for (let i = currentStep; i <= targetPos; i++) {
+                player.pos = i;
+                updateTokenVisualPosition(pIndex);
+                posDisplays[pIndex].innerText = i;
+                token.classList.add('jumping');
+                await delay(250); token.classList.remove('jumping'); await delay(100); 
+            }
+
+            let grantedExtraTurn = false;
+            await delay(200);
+            if (buffs[player.pos]) {
+                let buff = buffs[player.pos];
+                if (buff.type === 'shield') {
+                    player.hasShield = true;
+                    shieldIcons[pIndex].classList.remove('hidden');
+                    logMessage(`🛡️ Picked up a Shield!`, 'text-blue-300');
+                } else if (buff.type === 'extra_turn') {
+                    grantedExtraTurn = true; logMessage(`⚡ Extra Spin Buff!`, 'text-yellow-300');
+                }
+                let el = document.getElementById(buff.id); if (el) el.remove();
+                delete buffs[player.pos];
+                token.classList.add('jumping'); await delay(400); token.classList.remove('jumping'); await delay(600);
+            }
+
+            if (ladders[player.pos]) {
+                logMessage(`Ladder! Ascending...`, 'text-green-400');
+                await delay(400);
+                player.pos = ladders[player.pos];
+                updateTokenVisualPosition(pIndex); posDisplays[pIndex].innerText = player.pos;
+                token.classList.add('jumping'); triggerConfetti(2500); await delay(600); token.classList.remove('jumping');
+            } else if (snakes[player.pos]) {
+                if (player.hasShield) {
+                    logMessage(`🛡️ Shield broke, but you're safe!`, 'text-blue-400');
+                    player.hasShield = false; shieldIcons[pIndex].classList.add('hidden');
+                    token.classList.add('shield-break'); await delay(600); token.classList.remove('shield-break');
+                } else {
+                    showHissEffect(player.pos);
+                    logMessage(`Snake! Slipping down...`, 'text-red-400');
+                    showMeme(); 
+                    await delay(400);
+                    player.pos = snakes[player.pos];
+                    updateTokenVisualPosition(pIndex); posDisplays[pIndex].innerText = player.pos;
+                    token.classList.add('jumping'); await delay(600); token.classList.remove('jumping');
+                }
+            }
+
+            if (player.pos === BOARD_SIZE) { handleWin(player); return; }
+
+            if (steps === 6 || grantedExtraTurn) {
+                logMessage(`Extra Turn! Roll again.`, 'text-cyan-300'); isMoving = false;
+            } else {
+                nextTurn();
+            }
+        }
+
+        function updateTokenVisualPosition(pIndex) {
+            let player = players[pIndex];
+            if (player.pos === 0) return;
+            let coords = getCoordsForSquare(player.pos);
+            let token = tokens[pIndex];
+            
+            const offsets = [ {x: 1.5, y: 1.5}, {x: 5.5, y: 5.5}, {x: 5.5, y: 1.5}, {x: 1.5, y: 5.5} ];
+            let offsetX = offsets[pIndex].x; let offsetY = offsets[pIndex].y;
+            
+            token.style.left = `calc(${coords.col * 10}% + ${offsetX}%)`;
+            token.style.top = `calc(${coords.visualRow * 10}% + ${offsetY}%)`;
+        }
+
+        function nextTurn() {
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            updateUI(); isMoving = false;
+        }
+
+        function updateUI() {
+            let p = players[currentPlayerIndex];
+            turnText.innerText = `${p.name}'s Turn`;
+            turnText.className = `text-xl font-bold text-center mb-2 ${p.colorClass}`;
+            activeIndicator.className = `absolute top-0 left-0 h-1 w-full transition-colors duration-300 ${p.indicatorColor}`;
+            if(!isMoving && !gameOver) { logMessage(`Click the dice to roll.`, 'opacity-70'); }
+        }
+
+        function logMessage(msg, colorClass) { messageLog.innerHTML = `<span class="${colorClass}">${msg}</span>`; }
+
+        let lastMemeIndex = -1;
+        function showMeme() {
+            const memes = [
+                { emoji: "🤡", text: "SKILL ISSUE" }, { emoji: "📉", text: "OOF SIZE: MEGA" },
+                { emoji: "👞💥", text: "EMOTIONAL DAMAGE!" }, { emoji: "💀", text: "BRO GOT DEMOTED" },
+                { emoji: "🐍", text: "TASTES LIKE NOOB" }, { emoji: "🤦", text: "BRUH MOMENT" },
+                { emoji: "🪦", text: "WASTED" }, { emoji: "🎮", text: "YOU DIED" },
+                { emoji: "🎬", text: "DIRECTED BY ROBERT B. WEIDE" }, { emoji: "🛑", text: "VIBE CHECK: FAILED" },
+                { emoji: "✈️", text: "YEETED" }, { emoji: "F", text: "PRESS F TO PAY RESPECTS" },
+                { emoji: "🌌", text: "TO THE SHADOW REALM" }, { emoji: "📉", text: "NOT STONKS" }
+            ];
+            
+            let newIndex;
+            do { newIndex = Math.floor(Math.random() * memes.length); } while (newIndex === lastMemeIndex);
+            lastMemeIndex = newIndex;
+            
+            let m = memes[newIndex];
+            document.getElementById('meme-emoji').innerText = m.emoji;
+            document.getElementById('meme-text').innerText = m.text;
+            
+            let popup = document.getElementById('meme-popup'); let content = document.getElementById('meme-content');
+            
+            popup.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                popup.classList.remove('opacity-0'); content.classList.remove('scale-0'); content.classList.add('meme-animate-in');
+            });
+
+            setTimeout(() => {
+                content.classList.remove('meme-animate-in'); content.classList.add('meme-animate-out'); popup.classList.add('opacity-0');
+                setTimeout(() => {
+                    popup.classList.add('hidden'); content.classList.remove('meme-animate-out'); content.classList.add('scale-0');
+                }, 300);
+            }, 2000);
+        }
+
+        function handleWin(player) {
+            gameOver = true; logMessage(`🎉 ${player.name} Wins! 🎉`, player.colorClass);
+            turnText.innerText = "GAME OVER"; turnText.className = "text-2xl font-bold text-center mb-2 text-white animate-pulse";
+            triggerConfetti();
+        }
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            players.forEach((p, idx) => {
+                p.pos = 1; p.locked = true; p.hasShield = false;
+                posDisplays[idx].innerText = "🔒 1";
+                shieldIcons[idx].classList.add('hidden'); tokens[idx].classList.remove('jumping');
+                updateTokenVisualPosition(idx);
+            });
+            currentPlayerIndex = 0; gameOver = false; isMoving = false;
+            currentDiceSpinX = 0; currentDiceSpinY = 0;
+            diceElement.style.transition = 'transform 0.5s ease';
+            diceElement.style.transform = `translateZ(-40px) rotateX(0deg) rotateY(0deg)`; 
+            const canvas = document.getElementById('confetti-canvas');
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); canvas.classList.add('hidden');
+            generateBuffs(); updateUI();
+        });
+
+        function triggerConfetti(duration = 0) {
+            const canvas = document.getElementById('confetti-canvas');
+            canvas.classList.remove('hidden'); const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            let particles = [];
+            const colors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#ffffff', '#ef4444', '#3b82f6'];
+
+            for (let i = 0; i < 200; i++) {
+                particles.push({
+                    x: canvas.width / 2 + (Math.random() * 200 - 100), y: canvas.height + 20, 
+                    r: Math.random() * 6 + 2, dx: Math.random() * 24 - 12, dy: -(Math.random() * 15 + 15),
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    tilt: Math.floor(Math.random() * 10) - 10, tiltAngle: 0, tiltAngleInc: (Math.random() * 0.07) + 0.05, gravity: 0.5 
+                });
+            }
+
+            let animationId; let startTime = Date.now();
+            function render() {
+                if (duration > 0 && Date.now() - startTime > duration) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.classList.add('hidden'); cancelAnimationFrame(animationId); return;
+                }
+                if(!gameOver && duration === 0) { cancelAnimationFrame(animationId); return; }
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach((p, index) => {
+                    p.tiltAngle += p.tiltAngleInc; p.dy += p.gravity; p.y += p.dy; p.x += p.dx + Math.sin(p.tiltAngle) * 2;
+                    ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
+                    ctx.moveTo(p.x + p.tilt + p.r, p.y); ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r); ctx.stroke();
+                    if (p.y > canvas.height + 100 && duration === 0) {
+                        particles[index] = {
+                            x: canvas.width / 2 + (Math.random() * 200 - 100), y: canvas.height + 20, 
+                            r: Math.random() * 6 + 2, dx: Math.random() * 24 - 12, dy: -(Math.random() * 15 + 15),
+                            color: colors[Math.floor(Math.random() * colors.length)],
+                            tilt: Math.floor(Math.random() * 10) - 10, tiltAngle: 0, tiltAngleInc: (Math.random() * 0.07) + 0.05, gravity: 0.5 
+                        };
+                    }
+                });
+                animationId = requestAnimationFrame(render);
+            }
+            render();
+            window.addEventListener('resize', () => { if(gameOver || duration > 0) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }});
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            htmlGrid.innerHTML = '';
+            for (let i = BOARD_SIZE; i >= 1; i--) {
+                const cell = document.createElement('div'); cell.className = 'grid-cell';
+                let row = Math.floor((i - 1) / GRID_COLS); let col = (i - 1) % GRID_COLS;
+                let displayNum = (row % 2 !== 0) ? (row * GRID_COLS + col + 1) : (row * GRID_COLS + (GRID_COLS - 1 - col) + 1);
+                cell.textContent = displayNum; cell.id = `cell-${displayNum}`; htmlGrid.appendChild(cell);
+            }
+            applyTheme();
+        });
+    </script>
+</body>
+</html>
