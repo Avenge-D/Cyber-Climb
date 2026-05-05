@@ -36,3 +36,6 @@ Because this is a zero-dependency, single-file application, playing is incredibl
 ## 📜 License
 
 Feel free to use, modify, and learn from this code!
+
+NOTE: This game is made in google gemini ambassador program and A rank in the college .
+
