@@ -38,4 +38,7 @@ Because this is a zero-dependency, single-file application, playing is incredibl
 Feel free to use, modify, and learn from this code!
 
 NOTE: This game is made in google gemini ambassador program and A rank in the college .
+#v0.3.0-worker-system
+#release/dev
+#arch/microservices
 
