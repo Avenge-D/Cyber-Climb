@@ -41,4 +41,5 @@ NOTE: This game is made in google gemini ambassador program and A rank in the co
 #v0.3.0-worker-system
 #release/dev
 #arch/microservices
+#trendingarchgame
 
